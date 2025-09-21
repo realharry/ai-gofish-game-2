@@ -1,0 +1,5 @@
+
+{
+  "name": "AI Go Fish with Pixi.js",
+  "description": "A four-player Go Fish game where you play against three distinct AI opponents. The game is rendered using Pixi.js and features different AI strategies for a challenging and interactive experience."
+}
