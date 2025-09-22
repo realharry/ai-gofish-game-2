@@ -1,0 +1,5 @@
+
+{
+  "name": "AI Go Fish",
+  "description": "A four-player Go Fish card game where you play against three distinct AI opponents powered by the Gemini API. The game is rendered using Pixi.js for a rich visual experience."
+}
