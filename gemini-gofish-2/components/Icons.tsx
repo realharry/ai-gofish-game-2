@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const TrophyIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -36,4 +35,42 @@ export const CardsIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <path d="M21 9V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v2" />
     <path d="M21 9v0" />
   </svg>
+);
+
+export const InfoIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </svg>
+);
+
+export const MemoryIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M12 2a3 3 0 0 0-3 3v2a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+        <path d="M12 12a3 3 0 0 0-3 3v2a3 3 0 0 0 6 0v-2a3 3 0 0 0-3-3Z" />
+        <path d="M20 12a8 8 0 1 0-8 8" />
+        <path d="M12 4.5v1.5" />
+        <path d="M12 10.5v1.5" />
+    </svg>
+);
+
+export const RandomIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+        <path d="M16 8h.01" />
+        <path d="M12 12h.01" />
+        <path d="M8 16h.01" />
+        <path d="M8 8h.01" />
+        <path d="M12 16h.01" />
+        <path d="M16 12h.01" />
+    </svg>
+);
+
+export const TargetedIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+    </svg>
 );

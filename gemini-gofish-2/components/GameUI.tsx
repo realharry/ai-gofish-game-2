@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, Rank } from '../game/types';
+import { GameState, Rank, Player } from '../game/types';
 import { RANKS } from '../game/logic';
-import { TrophyIcon, UserIcon, BotIcon, CardsIcon } from './Icons';
+import { TrophyIcon, UserIcon, BotIcon, CardsIcon, InfoIcon, MemoryIcon, RandomIcon, TargetedIcon } from './Icons';
 
 interface GameUIProps {
   gameState: GameState | null;
@@ -11,9 +10,25 @@ interface GameUIProps {
   onStartGame: () => void;
 }
 
+const PlayerAvatar: React.FC<{ player: Player }> = ({ player }) => {
+  switch (player.avatarId) {
+    case 'user':
+      return <UserIcon className="w-5 h-5 text-green-400" />;
+    case 'memory':
+      return <MemoryIcon className="w-5 h-5 text-purple-400" />;
+    case 'random':
+      return <RandomIcon className="w-5 h-5 text-orange-400" />;
+    case 'targeted':
+      return <TargetedIcon className="w-5 h-5 text-red-400" />;
+    default:
+      return <BotIcon className="w-5 h-5 text-cyan-400" />;
+  }
+};
+
 export const GameUI: React.FC<GameUIProps> = ({ gameState, isThinking, onPlayerAction, onStartGame }) => {
   const [selectedRank, setSelectedRank] = useState<Rank | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,7 +69,7 @@ export const GameUI: React.FC<GameUIProps> = ({ gameState, isThinking, onPlayerA
           {players.map((p, idx) => (
             <div key={p.id} className={`p-2 rounded-md flex justify-between items-center transition-all duration-300 ${currentPlayerIndex === idx && !isGameOver ? 'bg-cyan-500/20' : 'bg-slate-800'}`}>
               <div className="flex items-center gap-2">
-                {p.isAI ? <BotIcon className="w-5 h-5 text-cyan-400"/> : <UserIcon className="w-5 h-5 text-green-400"/>}
+                <PlayerAvatar player={p} />
                 <span className="font-medium">{p.name}</span>
                 {p.strategy && <span className="text-xs text-slate-400">({p.strategy})</span>}
               </div>
@@ -72,6 +87,52 @@ export const GameUI: React.FC<GameUIProps> = ({ gameState, isThinking, onPlayerA
           ))}
         </div>
       </div>
+      
+      {/* Rules Section */}
+      <div className="mb-4">
+        <button
+          onClick={() => setIsRulesOpen(!isRulesOpen)}
+          className="w-full flex justify-between items-center p-2 rounded-md bg-slate-800 hover:bg-slate-700 transition-colors"
+          aria-expanded={isRulesOpen}
+          aria-controls="rules-content"
+        >
+          <div className="flex items-center gap-2">
+            <InfoIcon className="w-5 h-5 text-slate-400" />
+            <span className="font-semibold text-slate-300">Game Rules & AI Strategies</span>
+          </div>
+          <svg className={`w-5 h-5 text-slate-400 transform transition-transform ${isRulesOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div id="rules-content" className={`transition-[max-height,opacity] duration-500 ease-in-out overflow-hidden ${isRulesOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="mt-2 p-4 bg-slate-800/50 rounded-lg text-slate-300 space-y-3">
+            <div>
+              <h3 className="font-bold text-cyan-400 mb-1">Objective</h3>
+              <p>The goal is to collect the most "sets" of four cards of the same rank (e.g., four Kings, four 7s).</p>
+            </div>
+            <div>
+              <h3 className="font-bold text-cyan-400 mb-1">How to Play</h3>
+              <ul className="list-disc list-inside space-y-1 text-slate-400">
+                <li>On your turn, ask an opponent for a rank you already hold.</li>
+                <li>If they have cards of that rank, they give them all to you and you go again.</li>
+                <li>If not, they say "Go Fish!" and you draw a card from the deck.</li>
+                <li>If you draw the rank you asked for, you get another turn.</li>
+                <li>When you collect all 4 cards of a rank, you complete a set.</li>
+                <li>The game ends when the deck is empty or a player has no cards. The player with the most sets wins!</li>
+              </ul>
+            </div>
+             <div>
+              <h3 className="font-bold text-cyan-400 mb-1">AI Strategies</h3>
+              <ul className="list-disc list-inside space-y-1 text-slate-400">
+                  <li><strong>Ava (Memory):</strong> Pays attention to what others ask for to make educated guesses.</li>
+                  <li><strong>Bob (Random):</strong> Unpredictable. Asks for a random rank from a random player.</li>
+                  <li><strong>Charlie (Targeted):</strong> Tries to complete his own sets and often targets players with more cards.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Game Log */}
       <div className="flex-grow flex flex-col mb-4 bg-slate-800/50 rounded-lg p-2">

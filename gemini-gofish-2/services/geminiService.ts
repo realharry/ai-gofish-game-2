@@ -12,7 +12,7 @@ interface AIDecision {
 const getStrategyInstruction = (strategy: AIStrategy): string => {
   switch (strategy) {
     case AIStrategy.Memory:
-      return "Your strategy is 'Memory'. Analyze the game log to see who asked for what and who likely has which cards. Make an educated guess based on past events.";
+      return "Your strategy is 'Memory'. Your primary goal is to use the game log to deduce which cards other players might have. Look for these patterns:\n- If a player asked for a card and received it, you know they hold that rank.\n- If a player asked for a card and was told 'Go Fish!', you know the opponent they asked does NOT have that rank.\nUse this information to make the most logical request.";
     case AIStrategy.Targeted:
       return "Your strategy is 'Targeted'. Prioritize completing your own sets. Ask for ranks you already hold, especially if you have multiples. Target players with more cards.";
     case AIStrategy.Random:

@@ -1,4 +1,3 @@
-
 export enum Suit {
   Hearts = '♥',
   Diamonds = '♦',
@@ -20,6 +19,8 @@ export enum AIStrategy {
   Targeted = 'Targeted Bot',
 }
 
+export type AvatarId = 'user' | 'memory' | 'random' | 'targeted';
+
 export interface Player {
   id: number;
   name: string;
@@ -27,6 +28,7 @@ export interface Player {
   sets: Rank[];
   isAI: boolean;
   strategy?: AIStrategy;
+  avatarId: AvatarId;
 }
 
 export interface GameState {

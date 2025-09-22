@@ -1,4 +1,3 @@
-
 import { Rank, Suit, Card, Player, AIStrategy, GameState } from './types';
 
 export const RANKS: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -48,10 +47,10 @@ export const checkForSets = (player: Player): { updatedPlayer: Player; newSets: 
 
 export const initializeGame = (): GameState => {
   const players: Player[] = [
-    { id: 0, name: 'You', hand: [], sets: [], isAI: false },
-    { id: 1, name: 'Ava (Memory)', hand: [], sets: [], isAI: true, strategy: AIStrategy.Memory },
-    { id: 2, name: 'Bob (Random)', hand: [], sets: [], isAI: true, strategy: AIStrategy.Random },
-    { id: 3, name: 'Charlie (Targeted)', hand: [], sets: [], isAI: true, strategy: AIStrategy.Targeted },
+    { id: 0, name: 'You', hand: [], sets: [], isAI: false, avatarId: 'user' },
+    { id: 1, name: 'Ava (Memory)', hand: [], sets: [], isAI: true, strategy: AIStrategy.Memory, avatarId: 'memory' },
+    { id: 2, name: 'Bob (Random)', hand: [], sets: [], isAI: true, strategy: AIStrategy.Random, avatarId: 'random' },
+    { id: 3, name: 'Charlie (Targeted)', hand: [], sets: [], isAI: true, strategy: AIStrategy.Targeted, avatarId: 'targeted' },
   ];
 
   let deck = shuffleDeck(createDeck());
