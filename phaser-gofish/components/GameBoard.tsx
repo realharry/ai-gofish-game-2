@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useGameEngine } from '../hooks/useGameEngine';
 import Card from './Card';
@@ -10,6 +9,9 @@ import GameOverModal from './GameOverModal';
 import InstructionsModal from './InstructionsModal';
 import AnimatingCard from './AnimatingCard';
 import { Rank } from '../types';
+import { setMuted, unlockAudio } from '../services/audioService';
+import ConfirmationModal from './ConfirmationModal';
+import BookDisplay from './BookDisplay';
 
 const AnimatedBanner = () => {
     const [visible, setVisible] = useState(false);
@@ -33,14 +35,31 @@ const AnimatedBanner = () => {
 
 
 const GameBoard: React.FC = () => {
-    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation, showNewGameBanner } = useGameEngine();
+    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setPlayerName, setAIModelForPlayer, setGameSpeed, setCardBack, aiActionHighlight, cardAnimation, showNewGameBanner } = useGameEngine();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+    const [isNewGameConfirmOpen, setIsNewGameConfirmOpen] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
     const elementRefs = useRef<Record<string, HTMLElement | null>>({});
+    const audioUnlocked = useRef(false);
     
-    const { players, deck, currentPlayerIndex, gameLog, isGameOver, winner } = gameState;
+    const { players, deck, currentPlayerIndex, gameLog, isGameOver, winner, cardBack } = gameState;
     const currentPlayer = players[currentPlayerIndex];
     const isUserTurn = currentPlayer.id === 'player-0' && !isLoading;
+
+    const handleUnlockAudio = () => {
+        if (!audioUnlocked.current) {
+            unlockAudio();
+            audioUnlocked.current = true;
+        }
+    };
+
+    const handleSettingsClose = () => {
+        if (players[0] && !players[0].name.trim()) {
+            setPlayerName('You');
+        }
+        setIsSettingsOpen(false);
+    };
 
     const handleRankSelect = (rank: Rank) => {
         if (!isUserTurn) return;
@@ -56,6 +75,12 @@ const GameBoard: React.FC = () => {
         if (!isUserTurn || !userSelection.rank) return;
         setUserSelection(prev => ({ ...prev, targetId }));
     };
+
+    const toggleMute = () => {
+        const newMutedState = !isMuted;
+        setIsMuted(newMutedState);
+        setMuted(newMutedState);
+    };
     
     const opponentPositions = [
         { player: players[2], position: 'top-1 left-1/2 -translate-x-1/2' }, // Top-Middle
@@ -64,7 +89,10 @@ const GameBoard: React.FC = () => {
     ];
     
     return (
-        <div className="relative w-full h-full max-w-md mx-auto flex flex-col">
+        <div 
+            className="relative w-full h-full max-w-md mx-auto flex flex-col"
+            onClickCapture={handleUnlockAudio}
+        >
             {showNewGameBanner && <AnimatedBanner />}
             {cardAnimation && (() => {
                 const fromEl = elementRefs.current[cardAnimation.fromId];
@@ -90,18 +118,32 @@ const GameBoard: React.FC = () => {
                 ));
             })()}
 
-            {isGameOver && <GameOverModal winner={winner} onPlayAgain={resetGame} />}
+            {isGameOver && <GameOverModal winner={winner} players={players} onPlayAgain={resetGame} />}
             <SettingsModal 
                 isOpen={isSettingsOpen} 
-                onClose={() => setIsSettingsOpen(false)}
+                onClose={handleSettingsClose}
                 players={players}
                 onModelChange={setAIModelForPlayer}
                 gameSpeed={gameState.gameSpeed}
                 onGameSpeedChange={setGameSpeed}
+                cardBack={cardBack}
+                onCardBackChange={setCardBack}
+                playerName={players[0]?.name || 'You'}
+                onPlayerNameChange={setPlayerName}
             />
             <InstructionsModal 
                 isOpen={isInstructionsOpen}
                 onClose={() => setIsInstructionsOpen(false)}
+            />
+            <ConfirmationModal
+                isOpen={isNewGameConfirmOpen}
+                onClose={() => setIsNewGameConfirmOpen(false)}
+                onConfirm={() => {
+                    resetGame();
+                    setIsNewGameConfirmOpen(false);
+                }}
+                title="Start New Game?"
+                message="Your current game progress will be lost. Are you sure?"
             />
             
             {/* Opponents */}
@@ -109,6 +151,7 @@ const GameBoard: React.FC = () => {
                 if (!player) return null;
 
                 const isCurrentTurn = currentPlayer.id === player.id;
+                const isThinking = isLoading && isCurrentTurn;
                 const isAsker = aiActionHighlight?.askerId === player.id;
                 const isTarget = aiActionHighlight?.targetId === player.id;
                 
@@ -130,21 +173,29 @@ const GameBoard: React.FC = () => {
                          <div 
                             className={`relative p-2 rounded-lg transition-all duration-300 ${isCurrentTurn ? 'scale-110 bg-cyan-800/90 shadow-2xl shadow-cyan-400/50 border-2 border-cyan-400' : 'bg-slate-800/50 border-2 border-transparent'} ${ringClass}`}
                          >
-                             {isCurrentTurn && (
+                             {isCurrentTurn && !isThinking && (
                                 <div className="absolute -top-3.5 right-0 left-0 mx-auto w-fit px-3 py-0.5 bg-cyan-400 text-slate-900 text-sm font-bold rounded-full shadow-lg">
                                     TURN
                                 </div>
                             )}
                             <p className={`text-center font-bold text-sm md:text-base ${isCurrentTurn ? 'pt-3 text-cyan-100' : 'text-slate-300'}`}>{player.name}</p>
                             <p className="text-xs text-slate-400 text-center">{player.books.length} books • {player.hand.length} cards</p>
-                            <PlayerHand player={player} isCurrentUser={false} />
+                            <BookDisplay books={player.books} isOpponent />
+                            {isThinking ? (
+                                <div className="flex flex-col justify-center items-center h-24 space-y-2">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-cyan-300"></div>
+                                    <p className="text-xs text-cyan-300">Thinking...</p>
+                                </div>
+                            ) : (
+                                <PlayerHand player={player} isCurrentUser={false} cardBack={cardBack} />
+                            )}
                         </div>
                     </div>
                 );
             })}
             
             {/* Center Area: Deck & Game Info */}
-            <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 w-4/5 md:w-3/5">
+            <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 w-full px-2">
                 <div className="flex items-center justify-center space-x-4">
                     <div className="flex flex-col items-center" ref={el => { elementRefs.current['deck'] = el; }}>
                         <div className="relative w-14 h-20 md:w-16 md:h-24 flex items-center justify-center">
@@ -152,17 +203,14 @@ const GameBoard: React.FC = () => {
                                 <Card card={null} isFaceDown={false} />
                             ) : (
                                 <>
-                                    {/* Shadow card 2 (bottom-most) */}
                                     {deck.length > 2 && (
-                                        <div className="absolute w-full h-full bg-blue-500 bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-400 rounded-lg shadow-md transform -rotate-6"></div>
+                                        <div className="absolute w-full h-full bg-slate-800 border-2 border-slate-600 rounded-lg shadow-md transform -rotate-6"></div>
                                     )}
-                                    {/* Shadow card 1 */}
                                     {deck.length > 1 && (
-                                        <div className="absolute w-full h-full bg-blue-500 bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-400 rounded-lg shadow-md transform rotate-3"></div>
+                                        <div className="absolute w-full h-full bg-slate-800 border-2 border-slate-600 rounded-lg shadow-md transform rotate-3"></div>
                                     )}
-                                    {/* Top card */}
                                     <div className="absolute w-full h-full">
-                                        <Card card={null} isFaceDown={true} className="w-full h-full" />
+                                        <Card card={null} isFaceDown={true} className="w-full h-full" cardBack={cardBack} />
                                     </div>
                                 </>
                             )}
@@ -192,11 +240,9 @@ const GameBoard: React.FC = () => {
                     <div className={`text-center mb-1 ${isUserTurn ? 'pt-4' : ''}`}>
                         <p className="font-bold text-base text-white">{players[0].name}</p>
                         <p className="text-xs text-slate-300">{players[0].books.length} books • {players[0].hand.length} cards</p>
-                        {players[0].books.length > 0 &&
-                            <p className="text-xs text-slate-400 truncate">Books: {players[0].books.join(', ')}</p>
-                        }
                     </div>
-                    <PlayerHand player={players[0]} isCurrentUser={true} onCardRankSelect={handleRankSelect} selectedRank={userSelection.rank} />
+                    <BookDisplay books={players[0].books} />
+                    <PlayerHand player={players[0]} isCurrentUser={true} onCardRankSelect={handleRankSelect} selectedRank={userSelection.rank} cardBack={cardBack} />
                  </div>
                  
                  {isUserTurn && userSelection.rank && (
@@ -229,7 +275,7 @@ const GameBoard: React.FC = () => {
                        Ask
                     </button>
                     <button
-                         onClick={resetGame}
+                         onClick={() => setIsNewGameConfirmOpen(true)}
                          className="p-1.5 bg-red-600 rounded-full hover:bg-red-500 transition-colors"
                          aria-label="New Game"
                     >
@@ -251,19 +297,19 @@ const GameBoard: React.FC = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </button>
+                    <button
+                        onClick={toggleMute}
+                        className="p-1.5 bg-slate-600 rounded-full hover:bg-slate-500 transition-colors"
+                        aria-label={isMuted ? "Unmute" : "Mute"}
+                    >
+                        {isMuted ? (
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                        ) : (
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        )}
+                    </button>
                  </div>
             </div>
-
-            {isLoading && (
-                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center z-40">
-                    <div className="flex flex-col items-center">
-                        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-cyan-400"></div>
-                        <p className="mt-4 text-white text-lg font-semibold">
-                            {players[currentPlayerIndex].name} is thinking...
-                        </p>
-                    </div>
-                 </div>
-            )}
         </div>
     );
 };

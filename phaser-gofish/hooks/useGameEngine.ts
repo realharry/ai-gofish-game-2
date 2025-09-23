@@ -1,9 +1,9 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { GameState, Player, Rank, Card, AIModel, TurnRecord, GameSpeed } from '../types';
+import { GameState, Player, Rank, Card, AIModel, TurnRecord, GameSpeed, CardBack } from '../types';
 import { initializeGame, checkForBooks } from '../services/gameLogic';
 import { getAIAction } from '../services/geminiService';
 import { ANIMATION_DURATIONS, GAME_SPEED_DELAYS } from '../constants';
+import { playSound, SoundEffect } from '../services/audioService';
 
 export const useGameEngine = () => {
   const [gameState, setGameState] = useState<GameState>(initializeGame);
@@ -40,6 +40,7 @@ export const useGameEngine = () => {
                   winner = null; // Tie
               }
           });
+          playSound(SoundEffect.GameOver);
           return { ...currentState, isGameOver: true, winner };
       }
 
@@ -55,6 +56,7 @@ export const useGameEngine = () => {
                   winner = null; // Tie
               }
           });
+          playSound(SoundEffect.GameOver);
           return { ...currentState, isGameOver: true, winner };
       }
 
@@ -73,51 +75,59 @@ export const useGameEngine = () => {
       const wasSuccessful = targetHasCards.length > 0;
 
       const newHistoryEntry: TurnRecord = { askerId, targetId, rank, wasSuccessful };
+      let turnContinues = false;
 
       if (wasSuccessful) {
         target.hand = target.hand.filter((card: Card) => card.rank !== rank);
         asker.hand.push(...targetHasCards);
         
+        playSound(SoundEffect.CardDeal);
         setCardAnimation({ fromId: target.id, toId: asker.id, cards: targetHasCards, key: Date.now(), duration: ANIMATION_DURATIONS[newState.gameSpeed] });
         newHistoryEntry.transferredCards = targetHasCards;
 
         newState.gameLog.push(`${asker.name} took ${targetHasCards.length} ${rank}s from ${target.name}.`);
+        turnContinues = true;
         
         const newBooks = checkForBooks(asker);
         if (newBooks.length > 0) {
+            playSound(SoundEffect.BookComplete);
             newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
         }
       } else {
+        playSound(SoundEffect.GoFish);
         newState.gameLog.push(`${target.name} says "Go Fish!" to ${asker.name}.`);
         if (newState.deck.length > 0) {
           const drawnCard = newState.deck.pop()!;
           asker.hand.push(drawnCard);
           newHistoryEntry.drewCard = drawnCard;
           
+          playSound(SoundEffect.CardDeal);
           setCardAnimation({ fromId: 'deck', toId: asker.id, cards: [drawnCard], key: Date.now(), duration: ANIMATION_DURATIONS[newState.gameSpeed] });
 
           newState.gameLog.push(`${asker.name} drew a card.`);
 
           const newBooks = checkForBooks(asker);
           if (newBooks.length > 0) {
+              playSound(SoundEffect.BookComplete);
               newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
           }
 
           if (drawnCard.rank === rank) {
             newState.gameLog.push(`Lucky draw! ${asker.name} gets another turn.`);
-          } else {
-            newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
+            turnContinues = true;
           }
         } else {
           newState.gameLog.push("The deck is empty!");
-          newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
         }
       }
       
-      newState.history.push(newHistoryEntry);
-      newState = checkGameOver(newState);
+      if (!turnContinues) {
+          newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
+      }
       
-      return newState;
+      newState.history.push(newHistoryEntry);
+      const finalState = checkGameOver(newState);
+      return finalState;
     });
   }, []);
 
@@ -131,8 +141,18 @@ export const useGameEngine = () => {
   };
 
   const resetGame = () => {
+    playSound(SoundEffect.NewGame);
     setShowNewGameBanner(true);
-    setGameState(initializeGame());
+    const newGame = initializeGame();
+    // Persist settings across resets
+    newGame.players[0].name = gameState.players[0].name;
+    newGame.players.forEach((p, i) => {
+        if (p.isAI) p.aiModel = gameState.players[i].aiModel;
+    });
+    newGame.gameSpeed = gameState.gameSpeed;
+    newGame.cardBack = gameState.cardBack;
+
+    setGameState(newGame);
     setIsLoading(false);
     setUserSelection({ rank: null, targetId: null });
     setAiActionHighlight(null);
@@ -140,6 +160,18 @@ export const useGameEngine = () => {
     setTimeout(() => {
         setShowNewGameBanner(false);
     }, 1800);
+  };
+
+  const setPlayerName = (name: string) => {
+    setGameState(prev => ({
+        ...prev,
+        players: prev.players.map(p => {
+            if (p.id === 'player-0') {
+                return { ...p, name: name }; // Allow empty string while typing
+            }
+            return p;
+        })
+    }));
   };
 
   const setAIModelForPlayer = (playerId: string, model: AIModel) => {
@@ -153,6 +185,10 @@ export const useGameEngine = () => {
       setGameState(prev => ({ ...prev, gameSpeed: speed }));
   };
 
+  const setCardBack = (back: CardBack) => {
+      setGameState(prev => ({ ...prev, cardBack: back }));
+  };
+
   useEffect(() => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (currentPlayer && currentPlayer.isAI && !gameState.isGameOver && !isLoading) {
@@ -164,11 +200,22 @@ export const useGameEngine = () => {
                         const asker = newState.players[newState.currentPlayerIndex];
                         const drawnCard = newState.deck.pop()!;
                         asker.hand.push(drawnCard);
+
+                        playSound(SoundEffect.CardDeal);
                         setCardAnimation({ fromId: 'deck', toId: asker.id, cards: [drawnCard], key: Date.now(), duration: ANIMATION_DURATIONS[newState.gameSpeed] });
+                        
                         newState.gameLog.push(`${asker.name} had no cards and drew one.`);
-                        checkForBooks(asker);
+                        
+                        const newBooks = checkForBooks(asker);
+                        if(newBooks.length > 0){
+                            playSound(SoundEffect.BookComplete);
+                            newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
+                        }
+
                         newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
-                        return checkGameOver(newState);
+                        
+                        const finalState = checkGameOver(newState);
+                        return finalState;
                     });
                 }, GAME_SPEED_DELAYS[gameState.gameSpeed]);
             } else {
@@ -204,5 +251,5 @@ export const useGameEngine = () => {
     }
   }, [gameState.currentPlayerIndex, gameState.isGameOver, gameState.history.length, gameState.gameSpeed]);
 
-  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation, showNewGameBanner };
+  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setPlayerName, setAIModelForPlayer, setGameSpeed, setCardBack, aiActionHighlight, cardAnimation, showNewGameBanner };
 };

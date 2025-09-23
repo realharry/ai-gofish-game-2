@@ -1,5 +1,5 @@
 import { SUITS, RANKS, PLAYER_NAMES, INITIAL_HAND_SIZE } from '../constants';
-import { Card, GameState, Player, AIModel, Rank, GameSpeed } from '../types';
+import { Card, GameState, Player, AIModel, Rank, GameSpeed, CardBack } from '../types';
 
 export const createDeck = (): Card[] => {
   const deck: Card[] = [];
@@ -53,6 +53,7 @@ export const initializeGame = (): GameState => {
     winner: null,
     history: [],
     gameSpeed: GameSpeed.Normal,
+    cardBack: CardBack.Default,
   };
 };
 

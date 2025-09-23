@@ -41,6 +41,13 @@ export enum GameSpeed {
     Fast = "Fast",
 }
 
+export enum CardBack {
+    Default = 'Default',
+    Galaxy = 'Galaxy',
+    Forest = 'Forest',
+    Ocean = 'Ocean',
+}
+
 export interface GameState {
   deck: Card[];
   players: Player[];
@@ -50,6 +57,7 @@ export interface GameState {
   winner: Player | null;
   history: TurnRecord[];
   gameSpeed: GameSpeed;
+  cardBack: CardBack;
 }
 
 export enum AIModel {

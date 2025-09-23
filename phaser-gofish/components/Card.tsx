@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card as CardType, Suit } from '../types';
+import { Card as CardType, Suit, CardBack } from '../types';
 
 interface CardProps {
   card: CardType | null;
@@ -7,9 +7,41 @@ interface CardProps {
   onClick?: () => void;
   isSelected?: boolean;
   className?: string;
+  cardBack?: CardBack;
 }
 
-const Card: React.FC<CardProps> = ({ card, isFaceDown = false, onClick, isSelected, className }) => {
+const CardBackContent: React.FC<{ cardBack: CardBack }> = ({ cardBack }) => {
+    switch(cardBack) {
+        case CardBack.Galaxy:
+            return (
+                 <div className="w-full h-full rounded-md bg-gradient-to-tr from-indigo-900 via-purple-900 to-black flex items-center justify-center border border-purple-500/30">
+                     <div className="text-white text-xs opacity-50">✨</div>
+                 </div>
+            );
+        case CardBack.Forest:
+            return (
+                <div className="w-full h-full rounded-md bg-gradient-to-br from-green-800 to-emerald-900 flex items-center justify-center border border-green-500/30">
+                    <div className="text-white text-lg opacity-50">🌲</div>
+                </div>
+            );
+        case CardBack.Ocean:
+            return (
+                 <div className="w-full h-full rounded-md bg-gradient-to-tl from-blue-700 via-cyan-600 to-teal-800 flex items-center justify-center border border-cyan-500/30">
+                     <div className="text-white text-lg opacity-50">🌊</div>
+                 </div>
+            );
+        case CardBack.Default:
+        default:
+             return (
+                <div className="w-full h-full rounded-md bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-700 via-slate-800 to-slate-900 flex items-center justify-center border border-indigo-500/30">
+                    <div className="w-3 h-3 md:w-4 md:h-4 bg-cyan-500 transform rotate-45 rounded-sm shadow-[0_0_12px_theme(colors.cyan.400)] opacity-80"></div>
+                </div>
+            );
+    }
+};
+
+
+const Card: React.FC<CardProps> = ({ card, isFaceDown = false, onClick, isSelected, className, cardBack = CardBack.Default }) => {
   const color = card && (card.suit === Suit.Hearts || card.suit === Suit.Diamonds) ? 'text-red-500' : 'text-black';
 
   const baseClasses = 'w-14 h-20 md:w-16 md:h-24 rounded-lg shadow-md flex items-center justify-center transition-all duration-300 ease-in-out transform';
@@ -19,9 +51,7 @@ const Card: React.FC<CardProps> = ({ card, isFaceDown = false, onClick, isSelect
   if (isFaceDown) {
     return (
       <div className={`${baseClasses} bg-slate-800 border-2 border-slate-600 p-1.5 ${className}`}>
-          <div className="w-full h-full rounded-md bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-700 via-slate-800 to-slate-900 flex items-center justify-center border border-indigo-500/30">
-              <div className="w-3 h-3 md:w-4 md:h-4 bg-cyan-500 transform rotate-45 rounded-sm shadow-[0_0_12px_theme(colors.cyan.400)] opacity-80"></div>
-          </div>
+          <CardBackContent cardBack={cardBack} />
       </div>
     );
   }
