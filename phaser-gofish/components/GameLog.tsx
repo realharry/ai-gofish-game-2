@@ -17,9 +17,21 @@ const GameLog: React.FC<GameLogProps> = ({ logs }) => {
     <div className="bg-slate-800/50 rounded-lg p-2 shadow-inner h-28 md:h-36">
       <h3 className="text-center font-bold text-cyan-300 mb-1 text-sm">Game Log</h3>
       <div ref={logContainerRef} className="h-full overflow-y-auto text-xs text-slate-300 space-y-1 pr-2">
-        {logs.map((log, index) => (
-          <p key={index} className="leading-tight">{log}</p>
-        ))}
+        {logs.map((log, index) => {
+          const isMostRecent = index === logs.length - 1;
+          return (
+            <p
+              key={index}
+              className={`leading-tight p-1 rounded-md transition-all duration-300 ${
+                isMostRecent
+                  ? 'bg-cyan-500/20 text-cyan-200 font-semibold'
+                  : ''
+              }`}
+            >
+              {log}
+            </p>
+          );
+        })}
       </div>
     </div>
   );

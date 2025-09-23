@@ -18,10 +18,10 @@ const Card: React.FC<CardProps> = ({ card, isFaceDown = false, onClick, isSelect
 
   if (isFaceDown) {
     return (
-      <div className={`${baseClasses} bg-blue-500 bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-400 ${className}`}>
-        <div className="w-full h-full rounded-md border-2 border-blue-900 flex items-center justify-center">
-            <span className="text-blue-200 text-3xl font-black">?</span>
-        </div>
+      <div className={`${baseClasses} bg-slate-800 border-2 border-slate-600 p-1.5 ${className}`}>
+          <div className="w-full h-full rounded-md bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-700 via-slate-800 to-slate-900 flex items-center justify-center border border-indigo-500/30">
+              <div className="w-3 h-3 md:w-4 md:h-4 bg-cyan-500 transform rotate-45 rounded-sm shadow-[0_0_12px_theme(colors.cyan.400)] opacity-80"></div>
+          </div>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useGameEngine } from '../hooks/useGameEngine';
 import Card from './Card';
 import PlayerHand from './PlayerHand';
@@ -11,8 +11,29 @@ import InstructionsModal from './InstructionsModal';
 import AnimatingCard from './AnimatingCard';
 import { Rank } from '../types';
 
+const AnimatedBanner = () => {
+    const [visible, setVisible] = useState(false);
+    useEffect(() => {
+        const timer = requestAnimationFrame(() => setVisible(true));
+        return () => cancelAnimationFrame(timer);
+    }, []);
+
+    return (
+        <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center z-[100] transition-opacity duration-300" style={{ opacity: visible ? 1 : 0 }}>
+            <div
+                className="text-center transition-all duration-500 ease-out"
+                style={{ transform: visible ? 'scale(1) translateY(0)' : 'scale(0.9) translateY(10px)', opacity: visible ? 1 : 0 }}
+            >
+                <h2 className="text-5xl font-bold text-cyan-300 tracking-wider">New Game</h2>
+                <p className="text-xl text-slate-300 mt-2">Shuffling the deck...</p>
+            </div>
+        </div>
+    );
+};
+
+
 const GameBoard: React.FC = () => {
-    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation } = useGameEngine();
+    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation, showNewGameBanner } = useGameEngine();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
     const elementRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -44,6 +65,7 @@ const GameBoard: React.FC = () => {
     
     return (
         <div className="relative w-full h-full max-w-md mx-auto flex flex-col">
+            {showNewGameBanner && <AnimatedBanner />}
             {cardAnimation && (() => {
                 const fromEl = elementRefs.current[cardAnimation.fromId];
                 const toEl = elementRefs.current[cardAnimation.toId];
@@ -125,7 +147,26 @@ const GameBoard: React.FC = () => {
             <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 w-4/5 md:w-3/5">
                 <div className="flex items-center justify-center space-x-4">
                     <div className="flex flex-col items-center" ref={el => { elementRefs.current['deck'] = el; }}>
-                        <Card card={null} isFaceDown={deck.length > 0}/>
+                        <div className="relative w-14 h-20 md:w-16 md:h-24 flex items-center justify-center">
+                            {deck.length === 0 ? (
+                                <Card card={null} isFaceDown={false} />
+                            ) : (
+                                <>
+                                    {/* Shadow card 2 (bottom-most) */}
+                                    {deck.length > 2 && (
+                                        <div className="absolute w-full h-full bg-blue-500 bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-400 rounded-lg shadow-md transform -rotate-6"></div>
+                                    )}
+                                    {/* Shadow card 1 */}
+                                    {deck.length > 1 && (
+                                        <div className="absolute w-full h-full bg-blue-500 bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-400 rounded-lg shadow-md transform rotate-3"></div>
+                                    )}
+                                    {/* Top card */}
+                                    <div className="absolute w-full h-full">
+                                        <Card card={null} isFaceDown={true} className="w-full h-full" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
                         <p className="text-sm mt-1 text-slate-400">{deck.length} left</p>
                     </div>
                     <div className="w-36">
@@ -186,6 +227,13 @@ const GameBoard: React.FC = () => {
                         className="px-5 py-2 text-sm bg-green-600 text-white font-bold rounded-lg shadow-md disabled:bg-gray-500 disabled:cursor-not-allowed transition-transform transform hover:scale-105 disabled:transform-none"
                     >
                        Ask
+                    </button>
+                    <button
+                         onClick={resetGame}
+                         className="p-1.5 bg-red-600 rounded-full hover:bg-red-500 transition-colors"
+                         aria-label="New Game"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M20.49 9A9 9 0 0 0 7.54 5.46"></path><path d="M3.51 15A9 9 0 0 0 16.46 18.54"></path></svg>
                     </button>
                     <button
                          onClick={() => setIsSettingsOpen(true)}

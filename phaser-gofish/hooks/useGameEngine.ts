@@ -11,6 +11,13 @@ export const useGameEngine = () => {
   const [userSelection, setUserSelection] = useState<{ rank: Rank | null; targetId: string | null }>({ rank: null, targetId: null });
   const [aiActionHighlight, setAiActionHighlight] = useState<{ askerId: string; targetId: string } | null>(null);
   const [cardAnimation, setCardAnimation] = useState<{ fromId: string; toId: string; cards: Card[]; key: number; duration: number } | null>(null);
+  const [showNewGameBanner, setShowNewGameBanner] = useState(true);
+
+  useEffect(() => {
+    // Hide banner after initial load
+    const timer = setTimeout(() => setShowNewGameBanner(false), 1800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const nextTurn = useCallback(() => {
     setGameState(prev => {
@@ -124,10 +131,15 @@ export const useGameEngine = () => {
   };
 
   const resetGame = () => {
+    setShowNewGameBanner(true);
     setGameState(initializeGame());
     setIsLoading(false);
     setUserSelection({ rank: null, targetId: null });
     setAiActionHighlight(null);
+    setCardAnimation(null);
+    setTimeout(() => {
+        setShowNewGameBanner(false);
+    }, 1800);
   };
 
   const setAIModelForPlayer = (playerId: string, model: AIModel) => {
@@ -192,5 +204,5 @@ export const useGameEngine = () => {
     }
   }, [gameState.currentPlayerIndex, gameState.isGameOver, gameState.history.length, gameState.gameSpeed]);
 
-  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation };
+  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation, showNewGameBanner };
 };
