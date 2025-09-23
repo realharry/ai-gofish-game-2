@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card as CardType, Player, Rank } from '../types';
 import Card from './Card';
+import { RANKS } from '../constants';
 
 interface PlayerHandProps {
   player: Player;
@@ -10,7 +11,14 @@ interface PlayerHandProps {
 }
 
 const PlayerHand: React.FC<PlayerHandProps> = ({ player, isCurrentUser, onCardRankSelect, selectedRank }) => {
-  const sortedHand = [...player.hand].sort((a, b) => a.rank.localeCompare(b.rank));
+  const sortedHand = [...player.hand].sort((a, b) => {
+    const rankAIndex = RANKS.indexOf(a.rank);
+    const rankBIndex = RANKS.indexOf(b.rank);
+    if (rankAIndex === rankBIndex) {
+        return a.suit.localeCompare(b.suit);
+    }
+    return rankAIndex - rankBIndex;
+  });
   
   if (isCurrentUser) {
     // New single-row layout for the current user's hand

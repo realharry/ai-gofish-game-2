@@ -1,4 +1,3 @@
-
 export enum Suit {
   Hearts = '♥',
   Diamonds = '♦',
@@ -36,6 +35,12 @@ export interface Player {
   aiModel: AIModel;
 }
 
+export enum GameSpeed {
+    Slow = "Slow",
+    Normal = "Normal",
+    Fast = "Fast",
+}
+
 export interface GameState {
   deck: Card[];
   players: Player[];
@@ -44,6 +49,7 @@ export interface GameState {
   isGameOver: boolean;
   winner: Player | null;
   history: TurnRecord[];
+  gameSpeed: GameSpeed;
 }
 
 export enum AIModel {
@@ -58,6 +64,7 @@ export interface TurnRecord {
     rank: Rank;
     wasSuccessful: boolean;
     drewCard?: Card | null;
+    transferredCards?: Card[];
 }
 
 export interface AIAction {

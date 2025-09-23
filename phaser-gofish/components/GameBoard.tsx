@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { useGameEngine } from '../hooks/useGameEngine';
 import Card from './Card';
 import PlayerHand from './PlayerHand';
@@ -7,12 +8,14 @@ import Scoreboard from './Scoreboard';
 import SettingsModal from './SettingsModal';
 import GameOverModal from './GameOverModal';
 import InstructionsModal from './InstructionsModal';
+import AnimatingCard from './AnimatingCard';
 import { Rank } from '../types';
 
 const GameBoard: React.FC = () => {
-    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, aiActionHighlight } = useGameEngine();
+    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation } = useGameEngine();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+    const elementRefs = useRef<Record<string, HTMLElement | null>>({});
     
     const { players, deck, currentPlayerIndex, gameLog, isGameOver, winner } = gameState;
     const currentPlayer = players[currentPlayerIndex];
@@ -41,12 +44,38 @@ const GameBoard: React.FC = () => {
     
     return (
         <div className="relative w-full h-full max-w-md mx-auto flex flex-col">
+            {cardAnimation && (() => {
+                const fromEl = elementRefs.current[cardAnimation.fromId];
+                const toEl = elementRefs.current[cardAnimation.toId];
+
+                if (!fromEl || !toEl) return null;
+
+                const fromRect = fromEl.getBoundingClientRect();
+                const toRect = toEl.getBoundingClientRect();
+
+                const startPos = { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 };
+                const endPos = { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 };
+                
+                return cardAnimation.cards.map((card, index) => (
+                    <AnimatingCard
+                        key={`${cardAnimation.key}-${index}`}
+                        card={card}
+                        startPos={startPos}
+                        endPos={endPos}
+                        delay={index * 100}
+                        duration={cardAnimation.duration}
+                    />
+                ));
+            })()}
+
             {isGameOver && <GameOverModal winner={winner} onPlayAgain={resetGame} />}
             <SettingsModal 
                 isOpen={isSettingsOpen} 
                 onClose={() => setIsSettingsOpen(false)}
                 players={players}
                 onModelChange={setAIModelForPlayer}
+                gameSpeed={gameState.gameSpeed}
+                onGameSpeedChange={setGameSpeed}
             />
             <InstructionsModal 
                 isOpen={isInstructionsOpen}
@@ -57,6 +86,7 @@ const GameBoard: React.FC = () => {
             {opponentPositions.map(({player, position}) => {
                 if (!player) return null;
 
+                const isCurrentTurn = currentPlayer.id === player.id;
                 const isAsker = aiActionHighlight?.askerId === player.id;
                 const isTarget = aiActionHighlight?.targetId === player.id;
                 
@@ -70,12 +100,21 @@ const GameBoard: React.FC = () => {
                 }
 
                 return (
-                    <div key={player.id} className={`absolute ${position} flex flex-col items-center space-y-1 z-10`}>
+                    <div 
+                        key={player.id} 
+                        ref={el => { elementRefs.current[player.id] = el; }}
+                        className={`absolute ${position} flex flex-col items-center space-y-1 z-10`}
+                    >
                          <div 
-                            className={`p-2 rounded-lg transition-all duration-300 ${currentPlayer.id === player.id ? 'bg-cyan-500/30 animate-pulse' : 'bg-slate-800/50'} ${ringClass}`}
+                            className={`relative p-2 rounded-lg transition-all duration-300 ${isCurrentTurn ? 'scale-110 bg-cyan-800/90 shadow-2xl shadow-cyan-400/50 border-2 border-cyan-400' : 'bg-slate-800/50 border-2 border-transparent'} ${ringClass}`}
                          >
-                            <p className={`text-center font-bold text-sm md:text-base ${currentPlayer.id === player.id ? 'text-cyan-200' : 'text-slate-300'}`}>{player.name}</p>
-                            <p className="text-xs text-slate-400 text-center">{player.books.length} books</p>
+                             {isCurrentTurn && (
+                                <div className="absolute -top-3.5 right-0 left-0 mx-auto w-fit px-3 py-0.5 bg-cyan-400 text-slate-900 text-sm font-bold rounded-full shadow-lg">
+                                    TURN
+                                </div>
+                            )}
+                            <p className={`text-center font-bold text-sm md:text-base ${isCurrentTurn ? 'pt-3 text-cyan-100' : 'text-slate-300'}`}>{player.name}</p>
+                            <p className="text-xs text-slate-400 text-center">{player.books.length} books • {player.hand.length} cards</p>
                             <PlayerHand player={player} isCurrentUser={false} />
                         </div>
                     </div>
@@ -85,7 +124,7 @@ const GameBoard: React.FC = () => {
             {/* Center Area: Deck & Game Info */}
             <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 w-4/5 md:w-3/5">
                 <div className="flex items-center justify-center space-x-4">
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center" ref={el => { elementRefs.current['deck'] = el; }}>
                         <Card card={null} isFaceDown={deck.length > 0}/>
                         <p className="text-sm mt-1 text-slate-400">{deck.length} left</p>
                     </div>
@@ -100,10 +139,21 @@ const GameBoard: React.FC = () => {
 
             {/* User Area */}
             <div className="absolute bottom-0 left-0 right-0 p-2 flex flex-col items-center">
-                 <div className={`w-full max-w-lg p-2 rounded-lg transition-all duration-300 ${isUserTurn ? 'bg-cyan-500/30' : 'bg-slate-800/50'}`}>
-                    <div className="text-center mb-1">
+                 <div 
+                    ref={el => { if(players[0]) elementRefs.current[players[0].id] = el; }}
+                    className={`relative w-full max-w-lg p-2 rounded-lg transition-all duration-300 ${isUserTurn ? 'scale-110 bg-cyan-800/90 shadow-2xl shadow-cyan-400/50 border-2 border-cyan-400' : 'bg-slate-800/50 border-2 border-transparent'}`}
+                 >
+                    {isUserTurn && (
+                        <div className="absolute -top-4 right-0 left-0 mx-auto w-fit px-4 py-1.5 bg-cyan-400 text-slate-900 text-lg font-bold rounded-full shadow-lg animate-pulse">
+                            YOUR TURN
+                        </div>
+                    )}
+                    <div className={`text-center mb-1 ${isUserTurn ? 'pt-4' : ''}`}>
                         <p className="font-bold text-base text-white">{players[0].name}</p>
-                        <p className="text-xs text-slate-300">{players[0].books.length} books: {players[0].books.join(', ')}</p>
+                        <p className="text-xs text-slate-300">{players[0].books.length} books • {players[0].hand.length} cards</p>
+                        {players[0].books.length > 0 &&
+                            <p className="text-xs text-slate-400 truncate">Books: {players[0].books.join(', ')}</p>
+                        }
                     </div>
                     <PlayerHand player={players[0]} isCurrentUser={true} onCardRankSelect={handleRankSelect} selectedRank={userSelection.rank} />
                  </div>

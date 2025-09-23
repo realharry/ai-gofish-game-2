@@ -1,179 +1,196 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { GameState, Player, Rank, Card, AIModel, TurnRecord } from '../types';
+import { GameState, Player, Rank, Card, AIModel, TurnRecord, GameSpeed } from '../types';
 import { initializeGame, checkForBooks } from '../services/gameLogic';
 import { getAIAction } from '../services/geminiService';
+import { ANIMATION_DURATIONS, GAME_SPEED_DELAYS } from '../constants';
 
 export const useGameEngine = () => {
   const [gameState, setGameState] = useState<GameState>(initializeGame);
   const [isLoading, setIsLoading] = useState(false);
   const [userSelection, setUserSelection] = useState<{ rank: Rank | null; targetId: string | null }>({ rank: null, targetId: null });
   const [aiActionHighlight, setAiActionHighlight] = useState<{ askerId: string; targetId: string } | null>(null);
+  const [cardAnimation, setCardAnimation] = useState<{ fromId: string; toId: string; cards: Card[]; key: number; duration: number } | null>(null);
 
   const nextTurn = useCallback(() => {
     setGameState(prev => {
+      if (prev.isGameOver) return prev;
       const nextPlayerIndex = (prev.currentPlayerIndex + 1) % prev.players.length;
       return { ...prev, currentPlayerIndex: nextPlayerIndex };
     });
   }, []);
 
-  const processTurn = useCallback(async (askerId: string, targetId: string, rank: Rank) => {
-    setIsLoading(true);
+  const checkGameOver = (currentState: GameState): GameState => {
+      const totalBooks = currentState.players.reduce((sum, p) => sum + p.books.length, 0);
+      if (totalBooks === 13) {
+          let winner: Player | null = null;
+          let maxBooks = -1;
+          currentState.players.forEach(p => {
+              if (p.books.length > maxBooks) {
+                  maxBooks = p.books.length;
+                  winner = p;
+              } else if (p.books.length === maxBooks) {
+                  winner = null; // Tie
+              }
+          });
+          return { ...currentState, isGameOver: true, winner };
+      }
 
-    let wasSuccessful = false;
-    let turnAgain = false;
-    let drawnCard: Card | null = null;
-    let newBooks: Rank[] = [];
-    let logMessage = '';
+      const isAnyPlayerOutOfCards = currentState.players.some(p => p.hand.length === 0);
+      if (currentState.deck.length === 0 && isAnyPlayerOutOfCards) {
+         let winner: Player | null = null;
+          let maxBooks = -1;
+          currentState.players.forEach(p => {
+              if (p.books.length > maxBooks) {
+                  maxBooks = p.books.length;
+                  winner = p;
+              } else if (p.books.length === maxBooks) {
+                  winner = null; // Tie
+              }
+          });
+          return { ...currentState, isGameOver: true, winner };
+      }
 
+      return currentState;
+  }
+
+  const processTurn = useCallback((askerId: string, targetId: string, rank: Rank) => {
     setGameState(prev => {
-      const newState = JSON.parse(JSON.stringify(prev)) as GameState;
-      const asker = newState.players.find(p => p.id === askerId)!;
-      const target = newState.players.find(p => p.id === targetId)!;
-      logMessage = `${asker.name} asks ${target.name} for ${rank}s...`;
-      newState.gameLog.push(logMessage);
+      let newState = JSON.parse(JSON.stringify(prev));
+      const asker = newState.players.find((p: Player) => p.id === askerId);
+      const target = newState.players.find((p: Player) => p.id === targetId);
 
-      const matchingCards = target.hand.filter(card => card.rank === rank);
+      if (!asker || !target) return newState;
 
-      if (matchingCards.length > 0) {
-        // Successful ask
-        wasSuccessful = true;
-        turnAgain = true;
-        asker.hand.push(...matchingCards);
-        target.hand = target.hand.filter(card => card.rank !== rank);
+      const targetHasCards = target.hand.filter((card: Card) => card.rank === rank);
+      const wasSuccessful = targetHasCards.length > 0;
+
+      const newHistoryEntry: TurnRecord = { askerId, targetId, rank, wasSuccessful };
+
+      if (wasSuccessful) {
+        target.hand = target.hand.filter((card: Card) => card.rank !== rank);
+        asker.hand.push(...targetHasCards);
         
-        logMessage = `${target.name} has ${matchingCards.length} ${rank}(s). ${asker.name} gets another turn.`;
+        setCardAnimation({ fromId: target.id, toId: asker.id, cards: targetHasCards, key: Date.now(), duration: ANIMATION_DURATIONS[newState.gameSpeed] });
+        newHistoryEntry.transferredCards = targetHasCards;
 
-        const booksFromAsk = checkForBooks(asker);
-        if(booksFromAsk.length > 0) {
-            newBooks.push(...booksFromAsk);
-            logMessage += ` ${asker.name} made a book of ${booksFromAsk.join(', ')}s!`;
+        newState.gameLog.push(`${asker.name} took ${targetHasCards.length} ${rank}s from ${target.name}.`);
+        
+        const newBooks = checkForBooks(asker);
+        if (newBooks.length > 0) {
+            newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
         }
       } else {
-        // Go Fish
-        logMessage = `${target.name} says "Go Fish!"`;
+        newState.gameLog.push(`${target.name} says "Go Fish!" to ${asker.name}.`);
         if (newState.deck.length > 0) {
-          drawnCard = newState.deck.pop()!;
+          const drawnCard = newState.deck.pop()!;
           asker.hand.push(drawnCard);
-          logMessage += ` ${asker.name} draws a card.`;
+          newHistoryEntry.drewCard = drawnCard;
           
+          setCardAnimation({ fromId: 'deck', toId: asker.id, cards: [drawnCard], key: Date.now(), duration: ANIMATION_DURATIONS[newState.gameSpeed] });
+
+          newState.gameLog.push(`${asker.name} drew a card.`);
+
+          const newBooks = checkForBooks(asker);
+          if (newBooks.length > 0) {
+              newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
+          }
+
           if (drawnCard.rank === rank) {
-            turnAgain = true;
-            logMessage += ` It's a ${rank}! ${asker.name} gets another turn.`;
-          }
-          const booksFromDraw = checkForBooks(asker);
-          if(booksFromDraw.length > 0){
-             newBooks.push(...booksFromDraw);
-             logMessage += ` ${asker.name} made a book of ${booksFromDraw.join(', ')}s!`;
+            newState.gameLog.push(`Lucky draw! ${asker.name} gets another turn.`);
+          } else {
+            newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
           }
         } else {
-            logMessage += ` The deck is empty.`;
+          newState.gameLog.push("The deck is empty!");
+          newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
         }
       }
-
-      newState.gameLog.push(logMessage);
       
-      const newHistoryRecord: TurnRecord = { askerId, targetId, rank, wasSuccessful, drewCard: drawnCard };
-      newState.history.push(newHistoryRecord);
+      newState.history.push(newHistoryEntry);
+      newState = checkGameOver(newState);
       
-      // Check for game over
-      const totalBooks = newState.players.reduce((sum, p) => sum + p.books.length, 0);
-      if (newState.deck.length === 0 || asker.hand.length === 0 || totalBooks === 13) {
-        newState.isGameOver = true;
-        let maxBooks = -1;
-        let winners: Player[] = [];
-        newState.players.forEach(p => {
-          if (p.books.length > maxBooks) {
-            maxBooks = p.books.length;
-            winners = [p];
-          } else if (p.books.length === maxBooks) {
-            winners.push(p);
-          }
-        });
-        newState.winner = winners.length === 1 ? winners[0] : null; // Handle ties later if needed
-        newState.gameLog.push('Game over!');
-        if (newState.winner) {
-            newState.gameLog.push(`${newState.winner.name} wins!`);
-        } else {
-            newState.gameLog.push(`It's a tie!`);
-        }
-      }
-
-      if (!turnAgain && !newState.isGameOver) {
-        newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
-      }
-
       return newState;
     });
-
-    setIsLoading(false);
   }, []);
 
-  const handlePlayerTurn = useCallback(async () => {
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    if (currentPlayer.isAI && !gameState.isGameOver) {
-      setIsLoading(true);
-      
-      if(currentPlayer.hand.length === 0) {
-          nextTurn();
-          setIsLoading(false);
-          return;
-      }
-      
-      const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
-      const action = await getAIAction(currentPlayer, otherPlayers, gameState.history);
-      
-      setAiActionHighlight({ askerId: currentPlayer.id, targetId: action.playerToAskId });
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Let user see highlight
-
-      await processTurn(currentPlayer.id, action.playerToAskId, action.rankToAsk);
-
-      setAiActionHighlight(null);
-    }
-  }, [gameState, processTurn, nextTurn]);
-  
-  // Effect to trigger AI turns
-  useEffect(() => {
-    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-    if (currentPlayer.isAI && !isLoading && !gameState.isGameOver) {
-      handlePlayerTurn();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.currentPlayerIndex, gameState.isGameOver, isLoading]);
-
   const handleUserAsk = () => {
-    if (userSelection.rank && userSelection.targetId) {
-      const currentPlayer = gameState.players[gameState.currentPlayerIndex];
-      processTurn(currentPlayer.id, userSelection.targetId, userSelection.rank);
-      setUserSelection({ rank: null, targetId: null });
-    }
+    if (!userSelection.rank || !userSelection.targetId) return;
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer.id !== 'player-0') return;
+
+    processTurn(currentPlayer.id, userSelection.targetId, userSelection.rank);
+    setUserSelection({ rank: null, targetId: null });
   };
-  
+
   const resetGame = () => {
     setGameState(initializeGame());
     setIsLoading(false);
-    setUserSelection({rank: null, targetId: null});
-  }
+    setUserSelection({ rank: null, targetId: null });
+    setAiActionHighlight(null);
+  };
 
   const setAIModelForPlayer = (playerId: string, model: AIModel) => {
-    setGameState(prev => {
-      const newPlayers = prev.players.map(p => {
-        if(p.id === playerId) {
-          return {...p, aiModel: model};
-        }
-        return p;
-      });
-      return {...prev, players: newPlayers};
-    });
+    setGameState(prev => ({
+        ...prev,
+        players: prev.players.map(p => p.id === playerId ? {...p, aiModel: model} : p)
+    }));
+  };
+  
+  const setGameSpeed = (speed: GameSpeed) => {
+      setGameState(prev => ({ ...prev, gameSpeed: speed }));
   };
 
-  return {
-    gameState,
-    isLoading,
-    userSelection,
-    setUserSelection,
-    handleUserAsk,
-    resetGame,
-    setAIModelForPlayer,
-    aiActionHighlight,
-  };
+  useEffect(() => {
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    if (currentPlayer && currentPlayer.isAI && !gameState.isGameOver && !isLoading) {
+        if (currentPlayer.hand.length === 0) {
+            if(gameState.deck.length > 0) {
+                setTimeout(() => {
+                    setGameState(prev => {
+                        const newState = JSON.parse(JSON.stringify(prev));
+                        const asker = newState.players[newState.currentPlayerIndex];
+                        const drawnCard = newState.deck.pop()!;
+                        asker.hand.push(drawnCard);
+                        setCardAnimation({ fromId: 'deck', toId: asker.id, cards: [drawnCard], key: Date.now(), duration: ANIMATION_DURATIONS[newState.gameSpeed] });
+                        newState.gameLog.push(`${asker.name} had no cards and drew one.`);
+                        checkForBooks(asker);
+                        newState.currentPlayerIndex = (newState.currentPlayerIndex + 1) % newState.players.length;
+                        return checkGameOver(newState);
+                    });
+                }, GAME_SPEED_DELAYS[gameState.gameSpeed]);
+            } else {
+                setTimeout(() => nextTurn(), GAME_SPEED_DELAYS[gameState.gameSpeed]);
+            }
+            return;
+        }
+
+        setIsLoading(true);
+        const thinkingTimeout = setTimeout(async () => {
+            try {
+                const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
+                const action = await getAIAction(currentPlayer, otherPlayers, gameState.history);
+
+                setAiActionHighlight({ askerId: currentPlayer.id, targetId: action.playerToAskId });
+                
+                const actionTimeout = setTimeout(() => {
+                    processTurn(currentPlayer.id, action.playerToAskId, action.rankToAsk);
+                    setAiActionHighlight(null);
+                    setIsLoading(false);
+                }, GAME_SPEED_DELAYS[gameState.gameSpeed] * 0.8);
+                
+                return () => clearTimeout(actionTimeout);
+
+            } catch (error) {
+                console.error("AI action failed:", error);
+                setIsLoading(false);
+                nextTurn(); 
+            }
+        }, GAME_SPEED_DELAYS[gameState.gameSpeed]);
+
+        return () => clearTimeout(thinkingTimeout);
+    }
+  }, [gameState.currentPlayerIndex, gameState.isGameOver, gameState.history.length, gameState.gameSpeed]);
+
+  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setAIModelForPlayer, setGameSpeed, aiActionHighlight, cardAnimation };
 };
