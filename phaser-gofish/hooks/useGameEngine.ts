@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { GameState, Player, Rank, Card, AIModel, TurnRecord } from '../types';
 import { initializeGame, checkForBooks } from '../services/gameLogic';
@@ -8,6 +7,7 @@ export const useGameEngine = () => {
   const [gameState, setGameState] = useState<GameState>(initializeGame);
   const [isLoading, setIsLoading] = useState(false);
   const [userSelection, setUserSelection] = useState<{ rank: Rank | null; targetId: string | null }>({ rank: null, targetId: null });
+  const [aiActionHighlight, setAiActionHighlight] = useState<{ askerId: string; targetId: string } | null>(null);
 
   const nextTurn = useCallback(() => {
     setGameState(prev => {
@@ -72,7 +72,6 @@ export const useGameEngine = () => {
 
       newState.gameLog.push(logMessage);
       
-      // Fix: Correctly map the drawnCard variable to the drewCard property of TurnRecord.
       const newHistoryRecord: TurnRecord = { askerId, targetId, rank, wasSuccessful, drewCard: drawnCard };
       newState.history.push(newHistoryRecord);
       
@@ -113,7 +112,6 @@ export const useGameEngine = () => {
     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
     if (currentPlayer.isAI && !gameState.isGameOver) {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // AI thinking delay
       
       if(currentPlayer.hand.length === 0) {
           nextTurn();
@@ -124,8 +122,12 @@ export const useGameEngine = () => {
       const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
       const action = await getAIAction(currentPlayer, otherPlayers, gameState.history);
       
+      setAiActionHighlight({ askerId: currentPlayer.id, targetId: action.playerToAskId });
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Let user see highlight
+
       await processTurn(currentPlayer.id, action.playerToAskId, action.rankToAsk);
 
+      setAiActionHighlight(null);
     }
   }, [gameState, processTurn, nextTurn]);
   
@@ -171,6 +173,7 @@ export const useGameEngine = () => {
     setUserSelection,
     handleUserAsk,
     resetGame,
-    setAIModelForPlayer
+    setAIModelForPlayer,
+    aiActionHighlight,
   };
 };

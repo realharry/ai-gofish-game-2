@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card as CardType, Suit } from '../types';
 
@@ -13,7 +12,7 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({ card, isFaceDown = false, onClick, isSelected, className }) => {
   const color = card && (card.suit === Suit.Hearts || card.suit === Suit.Diamonds) ? 'text-red-500' : 'text-black';
 
-  const baseClasses = 'w-16 h-24 md:w-20 md:h-28 rounded-lg shadow-md flex items-center justify-center transition-all duration-300 ease-in-out transform';
+  const baseClasses = 'w-14 h-20 md:w-16 md:h-24 rounded-lg shadow-md flex items-center justify-center transition-all duration-300 ease-in-out transform';
   const selectedClasses = isSelected ? 'ring-4 ring-cyan-400 -translate-y-2' : 'hover:-translate-y-1';
   const clickableClasses = onClick ? `cursor-pointer ${selectedClasses}` : '';
 
@@ -34,13 +33,13 @@ const Card: React.FC<CardProps> = ({ card, isFaceDown = false, onClick, isSelect
   return (
     <div
       onClick={onClick}
-      className={`${baseClasses} bg-white ${color} relative p-1 text-2xl font-bold border border-gray-300 ${clickableClasses} ${className}`}
+      className={`${baseClasses} bg-white ${color} relative p-1 text-xl font-bold border border-gray-300 ${clickableClasses} ${className}`}
     >
-      <div className="absolute top-1 left-2">{card.rank}</div>
-      <div className="absolute top-7 left-2 text-lg">{card.suit}</div>
-      <div className="text-4xl">{card.suit}</div>
-      <div className="absolute bottom-1 right-2 transform rotate-180">{card.rank}</div>
-      <div className="absolute bottom-7 right-2 text-lg transform rotate-180">{card.suit}</div>
+      <div className="absolute top-1 left-1.5">{card.rank}</div>
+      <div className="absolute top-6 left-1.5 text-base">{card.suit}</div>
+      <div className="text-3xl">{card.suit}</div>
+      <div className="absolute bottom-1 right-1.5 transform rotate-180">{card.rank}</div>
+      <div className="absolute bottom-6 right-1.5 text-base transform rotate-180">{card.suit}</div>
     </div>
   );
 };
