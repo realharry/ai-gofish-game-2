@@ -42,7 +42,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({ player, isCurrentUser, onCardRa
 
   // AI player hands remain unchanged
   return (
-    <div className="flex justify-center items-center h-24 space-x-[-50px] md:space-x-[-56px]">
+    <div className="flex justify-center items-center h-20 space-x-[-50px] md:space-x-[-56px]">
       {player.hand.map((_, index) => (
         <Card key={index} card={null} isFaceDown cardBack={cardBack} />
       ))}

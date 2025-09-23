@@ -1,5 +1,5 @@
-import React from 'react';
-import { Player, AIModel, GameSpeed, CardBack } from '../types';
+import React, { useState } from 'react';
+import { Player, AIModel, GameSpeed, CardBack, Theme } from '../types';
 
 interface CardBackPreviewProps {
   cardBack: CardBack;
@@ -53,12 +53,28 @@ interface SettingsModalProps {
   onGameSpeedChange: (speed: GameSpeed) => void;
   cardBack: CardBack;
   onCardBackChange: (back: CardBack) => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   playerName: string;
   onPlayerNameChange: (name: string) => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, players, onModelChange, gameSpeed, onGameSpeedChange, cardBack, onCardBackChange, playerName, onPlayerNameChange }) => {
+const THEME_STYLES: Record<Theme, string> = {
+    [Theme.DarkBlue]: 'from-slate-900 to-blue-900',
+    [Theme.Charcoal]: 'from-gray-800 to-slate-900',
+    [Theme.Forest]: 'from-green-900 to-teal-900',
+    [Theme.Purple]: 'from-indigo-900 to-purple-900',
+};
+
+const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, players, onModelChange, gameSpeed, onGameSpeedChange, cardBack, onCardBackChange, theme, onThemeChange, playerName, onPlayerNameChange }) => {
   if (!isOpen) return null;
+
+  const [localPlayerName, setLocalPlayerName] = useState(playerName);
+
+  const handleClose = () => {
+    onPlayerNameChange(localPlayerName);
+    onClose();
+  };
 
   const aiPlayers = players.filter(p => p.isAI);
 
@@ -71,8 +87,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, players,
             <h3 className="text-lg font-semibold text-slate-300 mb-2">Your Name</h3>
             <input
                 type="text"
-                value={playerName}
-                onChange={(e) => onPlayerNameChange(e.target.value)}
+                value={localPlayerName}
+                onChange={(e) => setLocalPlayerName(e.target.value)}
                 className="w-full p-2 rounded bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-cyan-400 focus:outline-none"
                 placeholder="Enter your name"
                 maxLength={20}
@@ -93,6 +109,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, players,
                         }`}
                     >
                         {speed}
+                    </button>
+                ))}
+            </div>
+        </div>
+        
+        <div className="mb-6">
+            <h3 className="text-lg font-semibold text-slate-300 mb-3">Theme</h3>
+            <div className="grid grid-cols-2 gap-2">
+                {Object.values(Theme).map(t => (
+                    <button
+                        key={t}
+                        onClick={() => onThemeChange(t)}
+                        className={`p-2 rounded-lg border-2 transition-all duration-200 ${theme === t ? 'border-cyan-400 ring-2 ring-cyan-400 ring-offset-2 ring-offset-slate-800' : 'border-slate-600'}`}
+                    >
+                        <div className={`w-full h-10 rounded bg-gradient-to-br ${THEME_STYLES[t]}`}></div>
+                        <p className={`mt-1 text-sm ${theme === t ? 'text-cyan-300 font-semibold' : 'text-slate-400'}`}>{t}</p>
                     </button>
                 ))}
             </div>
@@ -134,7 +166,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, players,
         </div>
         
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="mt-8 w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded transition-colors duration-300"
         >
           Close

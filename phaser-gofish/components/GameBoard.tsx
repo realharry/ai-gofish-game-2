@@ -9,7 +9,7 @@ import GameOverModal from './GameOverModal';
 import InstructionsModal from './InstructionsModal';
 import AnimatingCard from './AnimatingCard';
 import { Rank } from '../types';
-import { setMuted, unlockAudio } from '../services/audioService';
+import { setMuted, unlockAudio, AUDIO_STATE_CHANGE_EVENT } from '../services/audioService';
 import ConfirmationModal from './ConfirmationModal';
 import BookDisplay from './BookDisplay';
 
@@ -33,9 +33,10 @@ const AnimatedBanner = () => {
     );
 };
 
+type GameBoardProps = ReturnType<typeof useGameEngine>;
 
-const GameBoard: React.FC = () => {
-    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setPlayerName, setAIModelForPlayer, setGameSpeed, setCardBack, aiActionHighlight, cardAnimation, showNewGameBanner } = useGameEngine();
+const GameBoard: React.FC<GameBoardProps> = (props) => {
+    const { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setPlayerName, setAIModelForPlayer, setGameSpeed, setCardBack, setTheme, aiActionHighlight, cardAnimation, showNewGameBanner, bookAnimation } = props;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
     const [isNewGameConfirmOpen, setIsNewGameConfirmOpen] = useState(false);
@@ -43,22 +44,30 @@ const GameBoard: React.FC = () => {
     const elementRefs = useRef<Record<string, HTMLElement | null>>({});
     const audioUnlocked = useRef(false);
     
-    const { players, deck, currentPlayerIndex, gameLog, isGameOver, winner, cardBack } = gameState;
+    const { players, deck, currentPlayerIndex, gameLog, isGameOver, winner, cardBack, theme } = gameState;
     const currentPlayer = players[currentPlayerIndex];
     const isUserTurn = currentPlayer.id === 'player-0' && !isLoading;
+
+    useEffect(() => {
+        const handleAudioStateChange = (event: Event) => {
+            const customEvent = event as CustomEvent<{ isMuted: boolean }>;
+            if (typeof customEvent.detail.isMuted === 'boolean') {
+                setIsMuted(customEvent.detail.isMuted);
+            }
+        };
+
+        window.addEventListener(AUDIO_STATE_CHANGE_EVENT, handleAudioStateChange);
+
+        return () => {
+            window.removeEventListener(AUDIO_STATE_CHANGE_EVENT, handleAudioStateChange);
+        };
+    }, []);
 
     const handleUnlockAudio = () => {
         if (!audioUnlocked.current) {
             unlockAudio();
             audioUnlocked.current = true;
         }
-    };
-
-    const handleSettingsClose = () => {
-        if (players[0] && !players[0].name.trim()) {
-            setPlayerName('You');
-        }
-        setIsSettingsOpen(false);
     };
 
     const handleRankSelect = (rank: Rank) => {
@@ -77,9 +86,7 @@ const GameBoard: React.FC = () => {
     };
 
     const toggleMute = () => {
-        const newMutedState = !isMuted;
-        setIsMuted(newMutedState);
-        setMuted(newMutedState);
+        setMuted(!isMuted);
     };
     
     const opponentPositions = [
@@ -121,13 +128,15 @@ const GameBoard: React.FC = () => {
             {isGameOver && <GameOverModal winner={winner} players={players} onPlayAgain={resetGame} />}
             <SettingsModal 
                 isOpen={isSettingsOpen} 
-                onClose={handleSettingsClose}
+                onClose={() => setIsSettingsOpen(false)}
                 players={players}
                 onModelChange={setAIModelForPlayer}
                 gameSpeed={gameState.gameSpeed}
                 onGameSpeedChange={setGameSpeed}
                 cardBack={cardBack}
                 onCardBackChange={setCardBack}
+                theme={theme}
+                onThemeChange={setTheme}
                 playerName={players[0]?.name || 'You'}
                 onPlayerNameChange={setPlayerName}
             />
@@ -171,18 +180,18 @@ const GameBoard: React.FC = () => {
                         className={`absolute ${position} flex flex-col items-center space-y-1 z-10`}
                     >
                          <div 
-                            className={`relative p-2 rounded-lg transition-all duration-300 ${isCurrentTurn ? 'scale-110 bg-cyan-800/90 shadow-2xl shadow-cyan-400/50 border-2 border-cyan-400' : 'bg-slate-800/50 border-2 border-transparent'} ${ringClass}`}
+                            className={`relative p-1 rounded-lg transition-all duration-300 ${isCurrentTurn ? 'scale-110 bg-cyan-800/90 shadow-2xl shadow-cyan-400/50 border-2 border-cyan-400' : 'bg-slate-800/50 border-2 border-transparent'} ${ringClass}`}
                          >
                              {isCurrentTurn && !isThinking && (
                                 <div className="absolute -top-3.5 right-0 left-0 mx-auto w-fit px-3 py-0.5 bg-cyan-400 text-slate-900 text-sm font-bold rounded-full shadow-lg">
                                     TURN
                                 </div>
                             )}
-                            <p className={`text-center font-bold text-sm md:text-base ${isCurrentTurn ? 'pt-3 text-cyan-100' : 'text-slate-300'}`}>{player.name}</p>
+                            <p className={`text-center font-bold text-sm ${isCurrentTurn ? 'pt-3 text-cyan-100' : 'text-slate-300'}`}>{player.name}</p>
                             <p className="text-xs text-slate-400 text-center">{player.books.length} books • {player.hand.length} cards</p>
-                            <BookDisplay books={player.books} isOpponent />
+                            <BookDisplay books={player.books} isOpponent highlightedRank={bookAnimation?.playerId === player.id ? bookAnimation.rank : null} />
                             {isThinking ? (
-                                <div className="flex flex-col justify-center items-center h-24 space-y-2">
+                                <div className="flex flex-col justify-center items-center h-20 space-y-2">
                                     <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-cyan-300"></div>
                                     <p className="text-xs text-cyan-300">Thinking...</p>
                                 </div>
@@ -195,7 +204,7 @@ const GameBoard: React.FC = () => {
             })}
             
             {/* Center Area: Deck & Game Info */}
-            <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center space-y-4 w-full px-2">
+            <div className="absolute top-40 left-1/2 -translate-x-1/2 flex flex-col items-center space-y-2 w-full px-2">
                 <div className="flex items-center justify-center space-x-4">
                     <div className="flex flex-col items-center" ref={el => { elementRefs.current['deck'] = el; }}>
                         <div className="relative w-14 h-20 md:w-16 md:h-24 flex items-center justify-center">
@@ -241,7 +250,7 @@ const GameBoard: React.FC = () => {
                         <p className="font-bold text-base text-white">{players[0].name}</p>
                         <p className="text-xs text-slate-300">{players[0].books.length} books • {players[0].hand.length} cards</p>
                     </div>
-                    <BookDisplay books={players[0].books} />
+                    <BookDisplay books={players[0].books} highlightedRank={bookAnimation?.playerId === players[0].id ? bookAnimation.rank : null} />
                     <PlayerHand player={players[0]} isCurrentUser={true} onCardRankSelect={handleRankSelect} selectedRank={userSelection.rank} cardBack={cardBack} />
                  </div>
                  

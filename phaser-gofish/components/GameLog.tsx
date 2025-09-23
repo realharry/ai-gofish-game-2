@@ -14,7 +14,7 @@ const GameLog: React.FC<GameLogProps> = ({ logs }) => {
   }, [logs]);
 
   return (
-    <div className="bg-slate-800/50 rounded-lg p-2 shadow-inner h-28 md:h-36">
+    <div className="bg-slate-800/50 rounded-lg p-2 shadow-inner h-24 md:h-28">
       <h3 className="text-center font-bold text-cyan-300 mb-1 text-sm">Game Log</h3>
       <div ref={logContainerRef} className="h-full overflow-y-auto text-xs text-slate-300 space-y-1 pr-2">
         {logs.map((log, index) => {

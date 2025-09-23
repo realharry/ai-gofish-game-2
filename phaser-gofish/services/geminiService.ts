@@ -69,8 +69,13 @@ Choose one player ID from [${possibleTargets.join(', ')}] and one rank from [${p
         // Fallback to random if Gemini response is invalid
         return getAIActionRandom(currentPlayer, otherPlayers);
 
-    } catch (error) {
-        console.error("Error calling Gemini API, falling back to random action:", error);
+    } catch (error: any) {
+        const errorMessage = String(error?.message || error);
+        if (errorMessage.includes("429") || errorMessage.includes("RESOURCE_EXHAUSTED")) {
+            console.warn("Gemini API quota exceeded. Falling back to simpler AI strategy for this turn.");
+        } else {
+            console.error("Error calling Gemini API, falling back to random action:", error);
+        }
         return getAIActionRandom(currentPlayer, otherPlayers);
     }
 };

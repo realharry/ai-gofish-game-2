@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { GameState, Player, Rank, Card, AIModel, TurnRecord, GameSpeed, CardBack } from '../types';
+import { GameState, Player, Rank, Card, AIModel, TurnRecord, GameSpeed, CardBack, Theme } from '../types';
 import { initializeGame, checkForBooks } from '../services/gameLogic';
 import { getAIAction } from '../services/geminiService';
 import { ANIMATION_DURATIONS, GAME_SPEED_DELAYS } from '../constants';
@@ -12,6 +12,7 @@ export const useGameEngine = () => {
   const [aiActionHighlight, setAiActionHighlight] = useState<{ askerId: string; targetId: string } | null>(null);
   const [cardAnimation, setCardAnimation] = useState<{ fromId: string; toId: string; cards: Card[]; key: number; duration: number } | null>(null);
   const [showNewGameBanner, setShowNewGameBanner] = useState(true);
+  const [bookAnimation, setBookAnimation] = useState<{ playerId: string; rank: Rank } | null>(null);
 
   useEffect(() => {
     // Hide banner after initial load
@@ -91,6 +92,8 @@ export const useGameEngine = () => {
         const newBooks = checkForBooks(asker);
         if (newBooks.length > 0) {
             playSound(SoundEffect.BookComplete);
+            setBookAnimation({ playerId: asker.id, rank: newBooks[0] });
+            setTimeout(() => setBookAnimation(null), 2000);
             newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
         }
       } else {
@@ -109,6 +112,8 @@ export const useGameEngine = () => {
           const newBooks = checkForBooks(asker);
           if (newBooks.length > 0) {
               playSound(SoundEffect.BookComplete);
+              setBookAnimation({ playerId: asker.id, rank: newBooks[0] });
+              setTimeout(() => setBookAnimation(null), 2000);
               newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
           }
 
@@ -151,6 +156,7 @@ export const useGameEngine = () => {
     });
     newGame.gameSpeed = gameState.gameSpeed;
     newGame.cardBack = gameState.cardBack;
+    newGame.theme = gameState.theme;
 
     setGameState(newGame);
     setIsLoading(false);
@@ -163,11 +169,12 @@ export const useGameEngine = () => {
   };
 
   const setPlayerName = (name: string) => {
+    const finalName = name.trim() === '' ? 'You' : name.trim();
     setGameState(prev => ({
         ...prev,
         players: prev.players.map(p => {
             if (p.id === 'player-0') {
-                return { ...p, name: name }; // Allow empty string while typing
+                return { ...p, name: finalName };
             }
             return p;
         })
@@ -187,6 +194,10 @@ export const useGameEngine = () => {
 
   const setCardBack = (back: CardBack) => {
       setGameState(prev => ({ ...prev, cardBack: back }));
+  };
+
+  const setTheme = (theme: Theme) => {
+      setGameState(prev => ({ ...prev, theme }));
   };
 
   useEffect(() => {
@@ -209,6 +220,8 @@ export const useGameEngine = () => {
                         const newBooks = checkForBooks(asker);
                         if(newBooks.length > 0){
                             playSound(SoundEffect.BookComplete);
+                            setBookAnimation({ playerId: asker.id, rank: newBooks[0] });
+                            setTimeout(() => setBookAnimation(null), 2000);
                             newState.gameLog.push(`${asker.name} completed a book of ${newBooks.join(', ')}s!`);
                         }
 
@@ -251,5 +264,5 @@ export const useGameEngine = () => {
     }
   }, [gameState.currentPlayerIndex, gameState.isGameOver, gameState.history.length, gameState.gameSpeed]);
 
-  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setPlayerName, setAIModelForPlayer, setGameSpeed, setCardBack, aiActionHighlight, cardAnimation, showNewGameBanner };
+  return { gameState, isLoading, userSelection, setUserSelection, handleUserAsk, resetGame, setPlayerName, setAIModelForPlayer, setGameSpeed, setCardBack, setTheme, aiActionHighlight, cardAnimation, showNewGameBanner, bookAnimation };
 };

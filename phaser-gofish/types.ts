@@ -48,6 +48,13 @@ export enum CardBack {
     Ocean = 'Ocean',
 }
 
+export enum Theme {
+    DarkBlue = 'Dark Blue',
+    Charcoal = 'Charcoal',
+    Forest = 'Forest',
+    Purple = 'Purple',
+}
+
 export interface GameState {
   deck: Card[];
   players: Player[];
@@ -58,6 +65,7 @@ export interface GameState {
   history: TurnRecord[];
   gameSpeed: GameSpeed;
   cardBack: CardBack;
+  theme: Theme;
 }
 
 export enum AIModel {

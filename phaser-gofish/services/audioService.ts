@@ -1,3 +1,4 @@
+
 export enum SoundEffect {
     NewGame = 'NewGame',
     CardDeal = 'CardDeal',
@@ -7,11 +8,11 @@ export enum SoundEffect {
 }
 
 const SOUND_FILES: Record<SoundEffect, string> = {
-    [SoundEffect.NewGame]: 'https://actions.google.com/sounds/v1/card_games/card_shuffle.ogg',
-    [SoundEffect.CardDeal]: 'https://actions.google.com/sounds/v1/card_games/card_dealing_single.ogg',
-    [SoundEffect.GoFish]: 'https://actions.google.com/sounds/v1/water/water_splash.ogg',
-    [SoundEffect.BookComplete]: 'https://actions.google.com/sounds/v1/achievements/achievement_bell.ogg',
-    [SoundEffect.GameOver]: 'https://actions.google.com/sounds/v1/achievements/trumpet_fanfare.ogg',
+    [SoundEffect.NewGame]: 'https://cdn.pixabay.com/download/audio/2022/02/09/audio_2fc98a8767.mp3',
+    [SoundEffect.CardDeal]: 'https://cdn.pixabay.com/download/audio/2021/08/09/audio_33372f4be3.mp3',
+    [SoundEffect.GoFish]: 'https://cdn.pixabay.com/download/audio/2023/05/05/audio_4070776d33.mp3',
+    [SoundEffect.BookComplete]: 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_12b0c7443c.mp3',
+    [SoundEffect.GameOver]: 'https://cdn.pixabay.com/download/audio/2023/03/13/audio_a5518b7a42.mp3',
 };
 
 
@@ -22,37 +23,50 @@ let isMuted = false;
 
 const audioBuffers: Partial<Record<SoundEffect, AudioBuffer>> = {};
 
+export const AUDIO_STATE_CHANGE_EVENT = 'audiostatechange';
+
 const preloadSounds = async () => {
     if (!audioContext) return;
-    
-    const promises = Object.entries(SOUND_FILES).map(async ([key, src]) => {
-        try {
-            const response = await fetch(src);
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext!.decodeAudioData(arrayBuffer);
-            audioBuffers[key as SoundEffect] = audioBuffer;
-        } catch (error) {
-            console.error(`Failed to load sound: ${key}`, error);
-        }
-    });
 
-    await Promise.all(promises);
+    const results = await Promise.allSettled(Object.entries(SOUND_FILES).map(async ([key, src]) => {
+        const response = await fetch(src);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} for sound ${key}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext!.decodeAudioData(arrayBuffer);
+        audioBuffers[key as SoundEffect] = audioBuffer;
+    }));
+
+    const failedSounds = results.filter(result => result.status === 'rejected');
+    if (failedSounds.length > 0) {
+        failedSounds.forEach(result => {
+            if (result.status === 'rejected') {
+                console.error("Failed to load sound:", result.reason);
+            }
+        });
+        console.error("One or more sounds failed to load. Muting audio automatically.");
+        setMuted(true);
+    }
 };
 
 export const unlockAudio = () => {
     if (isUnlocked || typeof window === 'undefined') return;
+    try {
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        gainNode = audioContext.createGain();
+        gainNode.connect(audioContext.destination);
 
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    gainNode = audioContext.createGain();
-    gainNode.connect(audioContext.destination);
-
-    if (audioContext.state === 'suspended') {
-        audioContext.resume();
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        isUnlocked = true;
+        preloadSounds();
+    } catch (e) {
+        console.error("Could not initialize AudioContext. Muting audio.", e);
+        setMuted(true);
     }
-    
-    isUnlocked = true;
-    preloadSounds();
 };
 
 
@@ -70,15 +84,15 @@ export const playSound = (sound: SoundEffect) => {
             console.error("Error playing sound:", error);
         }
     } else {
-        // This might happen if preloading is slow, it's a soft fail.
         console.warn(`Sound ${sound} not loaded yet.`);
     }
 };
 
 export const setMuted = (muted: boolean) => {
+    if (isMuted === muted) return; // Prevent unnecessary events
     isMuted = muted;
     if (gainNode && audioContext) {
-        // Use exponential ramp for a smooth volume transition
         gainNode.gain.exponentialRampToValueAtTime(muted ? 0.0001 : 1, audioContext.currentTime + 0.2);
     }
+    window.dispatchEvent(new CustomEvent(AUDIO_STATE_CHANGE_EVENT, { detail: { isMuted } }));
 };
